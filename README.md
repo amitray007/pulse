@@ -4,8 +4,8 @@
 and expose the database to AI over MCP — so you ask questions and build dashboards on demand instead
 of maintaining fixed ones.
 
-> Status: early. Foundation + generic core first; the first source adapter is Shopify embedded-app
-> Web Vitals, but Pulse itself knows nothing about web vitals.
+> Status: early. Pulse is source-agnostic — it ships with no source adapters by default. An example
+> adapter (Shopify Web Vitals) lives under `examples/` to show the pattern.
 
 ## Why
 
@@ -31,17 +31,20 @@ sources ──beacon──▶  collector  ──▶  Postgres  ◀──  MCP se
 - **Postgres** — one generic `events` table (typed value columns + `labels` jsonb, indexed for filter,
   search, and percentiles).
 - **mcp** — a remote MCP server exposing the database to AI over an authenticated transport.
-- **sources/** — per-source descriptors + optional adapter code. `sources/web_vital/` is the reference.
+- **sources / examples** — source adapters implement the `Source` interface (`payload -> EventInput[]`).
+  Pulse ships none by default; `examples/web_vital` shows the pattern. Apps can also POST generic events
+  directly, with no adapter at all.
 
 ## Repo layout
 
 ```
-packages/db/         shared Postgres access, the generic events schema, migrations
-packages/core/       the Source interface + source registry
-packages/collector/  the HTTP ingest service (Fastify)
-packages/mcp/        the MCP server (query / execute / explain / schema / stats)
-sources/web_vital/   the first source adapter (reference implementation)
-deploy/              Dockerfile + docker-compose
+packages/db/          shared Postgres access, the generic events schema, migrations
+packages/core/        the Source interface + source registry
+packages/collector/   the HTTP ingest service (Fastify)
+packages/mcp/         the MCP server (query / execute / explain / schema / stats)
+sources/              your own source adapters (empty by default — bring your own)
+examples/web_vital/   an example adapter: Shopify App Bridge Web Vitals
+deploy/               Dockerfile + docker-compose
 ```
 
 ## Quick start

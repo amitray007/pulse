@@ -5,7 +5,7 @@ import type { EventInput } from "@pulse/db";
  * Adding a new data source means implementing this interface — never changing the core.
  */
 export interface Source {
-  /** Schema discriminator stored on every event, e.g. "web_vital". Unique per source. */
+  /** Schema discriminator stored on every event, e.g. "http" or "app_metric". Unique per source. */
   readonly sourceType: string;
 
   /**

@@ -31,20 +31,20 @@ describeDb("migrate is idempotent (second run applies nothing)", async () => {
 describeDb("stores a numeric event in value_num with its unit", async () => {
   await insertEvent(pool, {
     source: "test",
-    sourceType: "web_vital",
-    name: "LCP",
+    sourceType: "http",
+    name: "latency_ms",
     value: { type: "num", value: 2772 },
     unit: "ms",
-    labels: { app: "FACEBOOK_PIXEL", country: "IN" },
+    labels: { service: "api", country: "IN" },
   });
   const { rows } = await pool.query("SELECT name, value_num, value_type, unit, labels FROM events");
   expect(rows).toHaveLength(1);
   expect(rows[0]).toMatchObject({
-    name: "LCP",
+    name: "latency_ms",
     value_num: 2772,
     value_type: "num",
     unit: "ms",
-    labels: { app: "FACEBOOK_PIXEL", country: "IN" },
+    labels: { service: "api", country: "IN" },
   });
 });
 
@@ -65,8 +65,8 @@ describeDb("stores text and bool events in their typed columns", async () => {
 describeDb("dedups on event_id — same id upserts, keeps last value", async () => {
   const base = {
     source: "t",
-    sourceType: "web_vital",
-    name: "LCP",
+    sourceType: "http",
+    name: "latency_ms",
     eventId: "v3-abc",
     value: { type: "num" as const, value: 1000 },
   };
@@ -95,14 +95,14 @@ describeDb("filters by label via GIN containment", async () => {
     {
       source: "t",
       sourceType: "s",
-      name: "LCP",
+      name: "latency_ms",
       value: { type: "num", value: 1 },
       labels: { app: "A" },
     },
     {
       source: "t",
       sourceType: "s",
-      name: "LCP",
+      name: "latency_ms",
       value: { type: "num", value: 2 },
       labels: { app: "B" },
     },

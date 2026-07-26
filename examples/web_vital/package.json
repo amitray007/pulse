@@ -1,9 +1,9 @@
 {
-  "name": "@pulse/source-web-vital",
+  "name": "@pulse/example-web-vital",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Pulse source adapter for Shopify App Bridge Web Vitals beacons.",
+  "description": "Example Pulse source adapter: turns Shopify App Bridge Web Vitals beacons into generic events.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

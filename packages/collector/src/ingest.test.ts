@@ -1,21 +1,33 @@
 import { expect, test } from "vitest";
-import { InvalidPayloadError, SourceRegistry } from "@pulse/core";
-import { webVitalSource } from "@pulse/source-web-vital";
+import { InvalidPayloadError, SourceRegistry, type Source } from "@pulse/core";
 import { payloadToEvents } from "./ingest.js";
+
+// A tiny generic source used only in tests: it explodes { items: [n, ...] } into one numeric event
+// per item. Keeps the collector tests self-contained and free of any specific adapter.
+const testSource: Source = {
+  sourceType: "test_metric",
+  toEvents(payload) {
+    const items = (payload as { items?: unknown }).items;
+    if (!Array.isArray(items)) throw new InvalidPayloadError("items must be an array");
+    return items.map((value) => ({
+      source: "test",
+      sourceType: "test_metric",
+      name: "n",
+      value: { type: "num" as const, value: value as number },
+    }));
+  },
+};
 
 function registry(): SourceRegistry {
   const r = new SourceRegistry();
-  r.register(webVitalSource);
+  r.register(testSource);
   return r;
 }
 
 test("routes a registered source_type to its adapter", () => {
-  const events = payloadToEvents(
-    { source_type: "web_vital", app: "A", metrics: [{ name: "LCP", value: 1, id: "x" }] },
-    registry(),
-  );
-  expect(events).toHaveLength(1);
-  expect(events[0]?.name).toBe("LCP");
+  const events = payloadToEvents({ source_type: "test_metric", items: [1, 2] }, registry());
+  expect(events).toHaveLength(2);
+  expect(events[0]?.name).toBe("n");
 });
 
 test("accepts a generic event when source_type is not registered", () => {

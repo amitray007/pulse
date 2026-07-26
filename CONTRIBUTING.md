@@ -23,14 +23,14 @@ packages/db/         Postgres access, the generic events schema, migrations
 packages/core/       source registry + the Source interface
 packages/collector/  the HTTP ingest service (Fastify)
 packages/mcp/        the MCP server (query/execute/explain/schema/stats)
-sources/web_vital/   the first source adapter (reference implementation)
+examples/web_vital/  an example source adapter (Shopify Web Vitals)
 deploy/              Dockerfile + docker-compose
 ```
 
 ## Adding a new source
 
 Pulse is source-agnostic. To teach it a new kind of data, add a package under `sources/` that
-implements the `Source` interface (`payload -> EventInput[]`) — see `sources/web_vital` as the
+implements the `Source` interface (`payload -> EventInput[]`) — see `examples/web_vital` as the
 reference. You should not need to change `packages/core` or `packages/db`.
 
 ## Guidelines

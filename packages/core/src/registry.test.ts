@@ -9,11 +9,11 @@ const fakeSource = (sourceType: string): Source => ({
 
 test("registers and retrieves a source by type", () => {
   const reg = new SourceRegistry();
-  const s = fakeSource("web_vital");
+  const s = fakeSource("http");
   reg.register(s);
-  expect(reg.get("web_vital")).toBe(s);
-  expect(reg.has("web_vital")).toBe(true);
-  expect(reg.list()).toEqual(["web_vital"]);
+  expect(reg.get("http")).toBe(s);
+  expect(reg.has("http")).toBe(true);
+  expect(reg.list()).toEqual(["http"]);
 });
 
 test("unknown source type returns undefined", () => {

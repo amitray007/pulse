@@ -1,6 +1,5 @@
 import { SourceRegistry } from "@pulse/core";
 import { createPool, migrate } from "@pulse/db";
-import { webVitalSource } from "@pulse/source-web-vital";
 import { loadConfig } from "./config.js";
 import { buildServer } from "./server.js";
 
@@ -11,8 +10,9 @@ async function main(): Promise<void> {
 
   await migrate(pool);
 
+  // Register your source adapters here (see packages under sources/). With none registered, the
+  // collector still accepts generic events posted directly to /ingest.
   const registry = new SourceRegistry();
-  registry.register(webVitalSource);
 
   const app = buildServer({ pool, registry, logger: true });
 

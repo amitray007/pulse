@@ -1,9 +1,9 @@
 import { InvalidPayloadError, type Source } from "@pulse/core";
 import type { EventInput } from "@pulse/db";
 
-// Shopify App Bridge web-vitals. One beacon per onReport firing carries an array of metrics;
-// we explode it into one generic event per metric. Values are Shopify's own computed numbers.
-// See the frozen collector contract + App Bridge internals in the reliability KB.
+// EXAMPLE source adapter — a reference implementation of the `Source` interface, not part of the
+// Pulse core. It turns a Shopify App Bridge Web Vitals beacon (one onReport firing carrying an array
+// of metrics) into one generic event per metric. Copy this shape to write your own adapter.
 
 const KNOWN_METRICS = new Set(["LCP", "FCP", "CLS", "INP", "TTFB", "FID"]);
 

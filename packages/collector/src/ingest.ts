@@ -2,7 +2,7 @@ import { InvalidPayloadError, type SourceRegistry } from "@pulse/core";
 import type { EventInput, EventValue } from "@pulse/db";
 
 // Two accepted ingest shapes:
-//   1. Raw source payload:  { source_type: "web_vital", ...sourceSpecificFields }
+//   1. Raw source payload:  { source_type: "<registered>", ...sourceSpecificFields }
 //      → the registered source explodes it into events.
 //   2. Generic event(s):    { source, source_type, name, value, ... }  (or an array of them)
 //      → stored directly, no source adapter needed.

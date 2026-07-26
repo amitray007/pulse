@@ -5,5 +5,5 @@
     "outDir": "dist"
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../db" }, { "path": "../core" }, { "path": "../../sources/web_vital" }]
+  "references": [{ "path": "../db" }, { "path": "../core" }]
 }

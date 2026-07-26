@@ -36,6 +36,15 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.1)(vite@6.4.3(@types/node@26.1.1))
 
+  examples/web_vital:
+    dependencies:
+      '@pulse/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@pulse/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+
   packages/collector:
     dependencies:
       '@pulse/core':
@@ -44,9 +53,6 @@ importers:
       '@pulse/db':
         specifier: workspace:*
         version: link:../db
-      '@pulse/source-web-vital':
-        specifier: workspace:*
-        version: link:../../sources/web_vital
       fastify:
         specifier: ^5.2.0
         version: 5.10.0
@@ -78,15 +84,6 @@ importers:
       zod:
         specifier: ^4.4.3
         version: 4.4.3
-
-  sources/web_vital:
-    dependencies:
-      '@pulse/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@pulse/db':
-        specifier: workspace:*
-        version: link:../../packages/db
 
 packages:
 

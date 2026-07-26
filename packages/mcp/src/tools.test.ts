@@ -26,11 +26,11 @@ beforeEach(async () => {
 async function seed(): Promise<void> {
   await insertEvent(pool, {
     source: "t",
-    sourceType: "web_vital",
-    name: "LCP",
+    sourceType: "http",
+    name: "latency_ms",
     value: { type: "num", value: 2772 },
     unit: "ms",
-    labels: { app: "A", country: "IN" },
+    labels: { service: "api", country: "IN" },
   });
 }
 
@@ -39,13 +39,13 @@ dbTest("query returns rows with rowCount and truncation flag", async () => {
   const res = await tools.query(pool, "SELECT name, value_num FROM events");
   expect(res.rowCount).toBe(1);
   expect(res.truncated).toBe(false);
-  expect(res.rows).toEqual([{ name: "LCP", value_num: 2772 }]);
+  expect(res.rows).toEqual([{ name: "latency_ms", value_num: 2772 }]);
 });
 
 dbTest("query strips a trailing semicolon and still runs", async () => {
   await seed();
   const res = await tools.query(pool, "SELECT name FROM events;");
-  expect(res.rows).toEqual([{ name: "LCP" }]);
+  expect(res.rows).toEqual([{ name: "latency_ms" }]);
 });
 
 dbTest("query caps rows and flags truncation (cap enforced in SQL)", async () => {
@@ -62,7 +62,7 @@ dbTest("execute runs a write and reports the affected count", async () => {
 });
 
 dbTest("explain returns a plan", async () => {
-  const res = await tools.explain(pool, "SELECT * FROM events WHERE name = 'LCP'");
+  const res = await tools.explain(pool, "SELECT * FROM events WHERE name = 'latency_ms'");
   expect(res.plan).toMatch(/Scan/i);
 });
 

@@ -1,8 +1,29 @@
 import { afterEach, expect, test } from "vitest";
-import { SourceRegistry } from "@pulse/core";
-import { webVitalSource } from "@pulse/source-web-vital";
+import { InvalidPayloadError, SourceRegistry, type Source } from "@pulse/core";
 import type { Pool } from "@pulse/db";
 import { buildServer } from "./server.js";
+
+// A generic test source: explodes { items: [{ value, country? }, ...] } into numeric events,
+// carrying a country label only when the item provides one. No specific adapter involved.
+const testSource: Source = {
+  sourceType: "test_metric",
+  toEvents(payload) {
+    const items = (payload as { items?: unknown }).items;
+    if (!Array.isArray(items)) throw new InvalidPayloadError("items must be an array");
+    return items.map((raw) => {
+      const item = raw as { value: number; country?: string };
+      const labels: Record<string, string> = {};
+      if (item.country) labels.country = item.country;
+      return {
+        source: "test",
+        sourceType: "test_metric",
+        name: "n",
+        value: { type: "num" as const, value: item.value },
+        labels,
+      };
+    });
+  },
+};
 
 // A fake pool that records what insertEvents() would write, so server tests need no real Postgres.
 // insertEvents() uses pool.connect() + client.query(BEGIN/INSERT.../COMMIT); we capture the INSERT rows.
@@ -24,7 +45,7 @@ function fakePool(): { pool: Pool; inserted: unknown[][] } {
 
 function registry(): SourceRegistry {
   const r = new SourceRegistry();
-  r.register(webVitalSource);
+  r.register(testSource);
   return r;
 }
 
@@ -47,12 +68,12 @@ test("health check returns ok", async () => {
   expect(res.json()).toEqual({ status: "ok" });
 });
 
-test("ingests a web-vital beacon and returns 204", async () => {
+test("ingests a registered-source payload and returns 204", async () => {
   const { pool, inserted } = fakePool();
   const res = await build(pool).inject({
     method: "POST",
     url: "/ingest",
-    payload: { source_type: "web_vital", app: "A", metrics: [{ name: "LCP", value: 1, id: "x" }] },
+    payload: { source_type: "test_metric", items: [{ value: 1 }] },
   });
   expect(res.statusCode).toBe(204);
   expect(inserted).toHaveLength(1);
@@ -88,17 +109,13 @@ test("fills country from a proxy header when the event omits it", async () => {
   expect(labels.country).toBe("DE");
 });
 
-test("does not override a country the beacon already provided", async () => {
+test("does not override a country the event already provided", async () => {
   const { pool, inserted } = fakePool();
   await build(pool).inject({
     method: "POST",
     url: "/ingest",
     headers: { "cf-ipcountry": "DE" },
-    payload: {
-      source_type: "web_vital",
-      app: "A",
-      metrics: [{ name: "LCP", value: 1, id: "x", country: "IN" }],
-    },
+    payload: { source_type: "test_metric", items: [{ value: 1, country: "IN" }] },
   });
   const labels = JSON.parse(inserted[0]?.[9] as string);
   expect(labels.country).toBe("IN");
