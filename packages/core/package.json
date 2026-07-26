@@ -1,0 +1,19 @@
+{
+  "name": "@pulse/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pulse core: source registry and event shaping (source-agnostic).",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@pulse/db": "workspace:*"
+  }
+}

@@ -33,6 +33,12 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@22.20.1)
 
+  packages/core:
+    dependencies:
+      '@pulse/db':
+        specifier: workspace:*
+        version: link:../db
+
   packages/db:
     dependencies:
       pg:
@@ -42,6 +48,15 @@ importers:
       '@types/pg':
         specifier: ^8.11.0
         version: 8.20.0
+
+  sources/web_vital:
+    dependencies:
+      '@pulse/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@pulse/db':
+        specifier: workspace:*
+        version: link:../../packages/db
 
 packages:
 
