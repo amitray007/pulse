@@ -8,6 +8,11 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+    ignore:
+      # Hold TypeScript on the 5.x line: TS 7.0 (the native-compiler preview) isn't yet
+      # supported by typescript-eslint. Revisit once typescript-eslint ships TS 7 support.
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
