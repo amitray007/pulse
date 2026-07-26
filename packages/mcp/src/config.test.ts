@@ -32,3 +32,9 @@ test("requires MCP_AUTH_TOKEN", () => {
 test("rejects an invalid port", () => {
   expect(() => loadConfig({ ...base, MCP_PORT: "nope" } as NodeJS.ProcessEnv)).toThrow(/port/);
 });
+
+test("rejects a token with surrounding whitespace", () => {
+  expect(() => loadConfig({ ...base, MCP_AUTH_TOKEN: "  padded  " } as NodeJS.ProcessEnv)).toThrow(
+    /whitespace/,
+  );
+});

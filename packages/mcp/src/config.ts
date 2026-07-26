@@ -28,6 +28,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): McpConfig {
   if (authToken === "change-me") {
     throw new Error("MCP_AUTH_TOKEN is still the default 'change-me' — set a real secret");
   }
+  // A token with surrounding whitespace is almost always a copy-paste mistake and confusing to debug.
+  if (authToken !== authToken.trim()) {
+    throw new Error("MCP_AUTH_TOKEN must not have leading/trailing whitespace");
+  }
   return {
     databaseUrl: required("DATABASE_URL", env),
     authToken,

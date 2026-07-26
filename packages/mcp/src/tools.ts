@@ -14,11 +14,18 @@ export interface QueryResult {
   truncated: boolean;
 }
 
-/** Run a read query and return up to MAX_ROWS rows. */
+/**
+ * Run a read query and return up to MAX_ROWS rows.
+ * The cap is enforced in SQL (a wrapping LIMIT of MAX_ROWS + 1) so Postgres never streams an
+ * unbounded result set into memory — the extra row only tells us whether truncation happened.
+ * The caller's SQL is wrapped as a subquery; a trailing semicolon would break that, so we strip one.
+ */
 export async function query(pool: Pool, sql: string): Promise<QueryResult> {
-  const res = await pool.query(sql);
-  const rows = res.rows.slice(0, MAX_ROWS);
-  return { rows, rowCount: res.rowCount ?? rows.length, truncated: res.rows.length > MAX_ROWS };
+  const inner = sql.trim().replace(/;\s*$/, "");
+  const res = await pool.query(`SELECT * FROM (${inner}) AS _pulse_q LIMIT ${MAX_ROWS + 1}`);
+  const truncated = res.rows.length > MAX_ROWS;
+  const rows = truncated ? res.rows.slice(0, MAX_ROWS) : res.rows;
+  return { rows, rowCount: rows.length, truncated };
 }
 
 /** Run a write / DDL statement. Returns the affected row count when the driver reports one. */
