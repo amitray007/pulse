@@ -1,3 +1,20 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# OS
+.DS_Store
 
 # Local design/thinking notes (not part of the OSS deliverable)
 docs/

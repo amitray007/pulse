@@ -1,0 +1,16 @@
+{
+  "name": "@pulse/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared Postgres access, schema, and migrations for Pulse.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run"
+  }
+}

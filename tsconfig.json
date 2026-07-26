@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [{ "path": "./packages/db" }],
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
+  }
+}
