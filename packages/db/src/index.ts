@@ -1,4 +1,5 @@
 // @pulse/db — shared Postgres access, schema, and migrations.
-// Placeholder entry point; real exports land in Unit 1 (DB core).
 
-export const PACKAGE_NAME = "@pulse/db";
+export { createPool, type Pool } from "./pool.js";
+export { migrate } from "./migrate.js";
+export { insertEvent, insertEvents, type EventInput, type EventValue } from "./events.js";
