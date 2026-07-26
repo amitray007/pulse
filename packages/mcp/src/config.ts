@@ -1,6 +1,7 @@
-/** Collector configuration, read from the environment. */
-export interface CollectorConfig {
+/** MCP server configuration, read from the environment. */
+export interface McpConfig {
   databaseUrl: string;
+  authToken: string;
   port: number;
   host: string;
 }
@@ -21,10 +22,16 @@ function parsePort(name: string, raw: string | undefined, fallback: number): num
   return port;
 }
 
-export function loadConfig(env: NodeJS.ProcessEnv = process.env): CollectorConfig {
+export function loadConfig(env: NodeJS.ProcessEnv = process.env): McpConfig {
+  const authToken = required("MCP_AUTH_TOKEN", env);
+  // The MCP has full DB power; refuse to boot with the placeholder token from .env.example.
+  if (authToken === "change-me") {
+    throw new Error("MCP_AUTH_TOKEN is still the default 'change-me' — set a real secret");
+  }
   return {
     databaseUrl: required("DATABASE_URL", env),
-    port: parsePort("COLLECTOR_PORT", env.COLLECTOR_PORT, 8080),
-    host: env.COLLECTOR_HOST ?? "0.0.0.0",
+    authToken,
+    port: parsePort("MCP_PORT", env.MCP_PORT, 8090),
+    host: env.MCP_HOST ?? "0.0.0.0",
   };
 }

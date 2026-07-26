@@ -16,22 +16,26 @@ export interface CollectorDeps {
 // that don't already carry a country label.
 const COUNTRY_HEADERS = ["cf-ipcountry", "x-vercel-ip-country", "x-country-code"];
 
+// Proxy country headers are attacker-controllable, so accept only a well-formed ISO-3166 alpha-2
+// code and never persist arbitrary header bytes as a "country".
 function countryFromHeaders(
   headers: Record<string, string | string[] | undefined>,
 ): string | undefined {
   for (const h of COUNTRY_HEADERS) {
     const v = headers[h];
     const code = Array.isArray(v) ? v[0] : v;
-    if (code && code !== "XX") return code;
+    if (code && /^[A-Z]{2}$/.test(code)) return code;
   }
   return undefined;
 }
 
+// Clone each event's labels before adding country — the source adapter may share one labels object
+// across several events, so mutating in place would leak the country onto siblings.
 function fillCountry(events: EventInput[], country: string | undefined): void {
   if (!country) return;
   for (const event of events) {
-    const labels = event.labels ?? (event.labels = {});
-    if (!labels.country) labels.country = country;
+    if (event.labels?.country) continue;
+    event.labels = { ...(event.labels ?? {}), country };
   }
 }
 

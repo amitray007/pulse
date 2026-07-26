@@ -1,0 +1,25 @@
+{
+  "name": "@pulse/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pulse MCP server: exposes the telemetry database to AI over an authenticated transport.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "bin": {
+    "pulse-mcp": "./dist/main.js"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "start": "node dist/main.js",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@pulse/db": "workspace:*",
+    "zod": "^3.24.0"
+  }
+}
