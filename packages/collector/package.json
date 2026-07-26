@@ -1,0 +1,26 @@
+{
+  "name": "@pulse/collector",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pulse collector: HTTP ingest service that validates and stores telemetry events.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "bin": {
+    "pulse-collector": "./dist/main.js"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "start": "node dist/main.js",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@pulse/core": "workspace:*",
+    "@pulse/db": "workspace:*",
+    "@pulse/source-web-vital": "workspace:*",
+    "fastify": "^5.2.0"
+  }
+}
