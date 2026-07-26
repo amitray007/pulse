@@ -36,22 +36,45 @@ sources ──beacon──▶  collector  ──▶  Postgres  ◀──  MCP se
 ## Repo layout
 
 ```
-packages/db/     shared Postgres access + schema/migrations
-core/            ingest handling + source registry (planned)
-collector/       HTTP ingest service (planned)
-mcp/             MCP server (planned)
-sources/         source adapters — web_vital is the first (planned)
-deploy/          Docker Compose + deploy notes (planned)
+packages/db/         shared Postgres access, the generic events schema, migrations
+packages/core/       the Source interface + source registry
+packages/collector/  the HTTP ingest service (Fastify)
+packages/mcp/        the MCP server (query / execute / explain / schema / stats)
+sources/web_vital/   the first source adapter (reference implementation)
+deploy/              Dockerfile + docker-compose
 ```
+
+## Quick start
+
+Run the whole stack (Postgres + collector + MCP) with Docker:
+
+```bash
+cp .env.example .env        # set MCP_AUTH_TOKEN to a real secret
+docker compose -f deploy/docker-compose.yml up --build
+```
+
+Send an event to the collector:
+
+```bash
+curl -X POST http://localhost:8080/ingest -H 'Content-Type: application/json' \
+  -d '{"source":"my-app","source_type":"custom","name":"queue_depth","value":{"type":"num","value":42},"unit":"count","labels":{"env":"prod"}}'
+```
+
+Then point an MCP client at `http://localhost:8090` with an `Authorization: Bearer <token>`
+header and ask it to `query`, `explain`, `schema`, or `stats` your telemetry.
 
 ## Development
 
-Requires Node 22+ and pnpm.
+Requires Node 22+ and pnpm, plus a local Postgres for integration tests.
 
 ```bash
 pnpm install
-pnpm run check      # format check + lint + typecheck + test
+createdb pulse_test
+PULSE_TEST_DATABASE_URL=postgres://localhost:5432/pulse_test pnpm run check
 ```
+
+`pnpm run check` runs the full gate (Prettier + ESLint + tsc + Vitest). Integration tests skip
+cleanly when `PULSE_TEST_DATABASE_URL` is unset.
 
 ## License
 
