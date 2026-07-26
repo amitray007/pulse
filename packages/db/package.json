@@ -11,6 +11,12 @@
   },
   "scripts": {
     "build": "tsc --build",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.0"
   }
 }
