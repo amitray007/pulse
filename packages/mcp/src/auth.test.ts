@@ -27,3 +27,15 @@ test("rejects a bearer header with no token", () => {
 test("rejects a token that is a prefix of the expected token", () => {
   expect(isAuthorized(req("Bearer s3cret"), TOKEN)).toBe(false);
 });
+
+test("accepts a token containing spaces (whole remainder after scheme)", () => {
+  expect(isAuthorized(req("Bearer tok en with spaces"), "tok en with spaces")).toBe(true);
+});
+
+test("accepts a case-insensitive bearer scheme", () => {
+  expect(isAuthorized(req(`bearer ${TOKEN}`), TOKEN)).toBe(true);
+});
+
+test("rejects a header with no space separator", () => {
+  expect(isAuthorized(req("Bearer"), TOKEN)).toBe(false);
+});

@@ -1,0 +1,53 @@
+# Pulse full stack: Postgres + collector + MCP. Suitable for Dokploy or plain `docker compose`.
+# Copy ../.env.example to .env and fill it in first (DATABASE_URL is set here for the containers).
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: pulse
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pulse}
+      POSTGRES_DB: pulse
+    volumes:
+      - pulse_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  collector:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        SERVICE: collector
+    environment:
+      DATABASE_URL: postgres://pulse:${POSTGRES_PASSWORD:-pulse}@postgres:5432/pulse
+      COLLECTOR_PORT: 8080
+    ports:
+      - "${COLLECTOR_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  mcp:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        SERVICE: mcp
+    environment:
+      DATABASE_URL: postgres://pulse:${POSTGRES_PASSWORD:-pulse}@postgres:5432/pulse
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:?set MCP_AUTH_TOKEN in .env}
+      MCP_PORT: 8090
+    # NOTE: the MCP has full DB power. Do NOT expose it publicly — reach it over the Dokploy
+    # private network or a VPN. The port mapping below is for local use only; drop it in prod.
+    ports:
+      - "127.0.0.1:${MCP_PORT:-8090}:8090"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pulse_pgdata:

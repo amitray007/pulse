@@ -18,7 +18,10 @@ export function isAuthorized(
 ): boolean {
   const header = req.headers.authorization;
   if (typeof header !== "string") return false;
-  const [scheme, token] = header.split(" ");
-  if (scheme !== "Bearer" || !token) return false;
+  const sep = header.indexOf(" ");
+  if (sep === -1) return false;
+  const scheme = header.slice(0, sep);
+  const token = header.slice(sep + 1); // rest of the header, so tokens may contain spaces
+  if (scheme.toLowerCase() !== "bearer" || token.length === 0) return false; // RFC 7235: scheme is case-insensitive
   return safeEqual(token, expectedToken);
 }

@@ -35,10 +35,16 @@ async function handle(
 
   const mcp = createMcpServer(pool);
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-  res.on("close", () => {
+
+  // Idempotent teardown: run it on response close AND in finally, guarded so it never double-closes.
+  let closed = false;
+  const teardown = (): void => {
+    if (closed) return;
+    closed = true;
     void transport.close();
     void mcp.close();
-  });
+  };
+  res.on("close", teardown);
 
   try {
     await mcp.connect(transport);
@@ -50,5 +56,7 @@ async function handle(
         .end(JSON.stringify({ error: "internal error" }));
     }
     console.error("mcp request failed:", err);
+  } finally {
+    teardown();
   }
 }

@@ -42,6 +42,19 @@ dbTest("query returns rows with rowCount and truncation flag", async () => {
   expect(res.rows).toEqual([{ name: "LCP", value_num: 2772 }]);
 });
 
+dbTest("query strips a trailing semicolon and still runs", async () => {
+  await seed();
+  const res = await tools.query(pool, "SELECT name FROM events;");
+  expect(res.rows).toEqual([{ name: "LCP" }]);
+});
+
+dbTest("query caps rows and flags truncation (cap enforced in SQL)", async () => {
+  // generate_series makes 2000 rows without inserting; proves the LIMIT wrapping works.
+  const res = await tools.query(pool, "SELECT g FROM generate_series(1, 2000) AS g");
+  expect(res.rows).toHaveLength(1000);
+  expect(res.truncated).toBe(true);
+});
+
 dbTest("execute runs a write and reports the affected count", async () => {
   await seed();
   const res = await tools.execute(pool, "UPDATE events SET unit = 'milliseconds'");
