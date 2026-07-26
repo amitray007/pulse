@@ -3,9 +3,15 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import type { Pool } from "pg";
 
-// Migrations live as numbered .sql files in ../migrations, applied in filename order.
-// A migrations table records which have run, so migrate() is idempotent.
+// Migrations live as numbered .sql files in ../migrations (e.g. 001_init.sql), applied in
+// numeric-prefix order. A migrations table records which have run, so migrate() is idempotent.
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
+
+/** Ordering key = the leading integer of the filename, so 2 < 10 < 100 regardless of zero-padding. */
+function migrationOrder(filename: string): number {
+  const prefix = /^\d+/.exec(filename)?.[0];
+  return prefix ? Number.parseInt(prefix, 10) : Number.MAX_SAFE_INTEGER;
+}
 
 async function ensureMigrationsTable(pool: Pool): Promise<void> {
   await pool.query(`
@@ -26,7 +32,9 @@ export async function migrate(pool: Pool): Promise<string[]> {
   await ensureMigrationsTable(pool);
   const applied = await appliedMigrations(pool);
 
-  const files = (await readdir(MIGRATIONS_DIR)).filter((f) => f.endsWith(".sql")).sort();
+  const files = (await readdir(MIGRATIONS_DIR))
+    .filter((f) => f.endsWith(".sql"))
+    .sort((a, b) => migrationOrder(a) - migrationOrder(b));
 
   const ran: string[] = [];
   for (const file of files) {

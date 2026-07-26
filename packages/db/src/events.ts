@@ -21,6 +21,11 @@ export interface EventInput {
   groupId?: string | null;
 }
 
+// Dedup contract: `event_id` must be unique within a (source_type, name) across all sources —
+// the conflict target is (source_type, event_id, name), NOT scoped by `source`. `source` is left
+// out of DO UPDATE SET, so a re-fire keeps the original `source`. On conflict we keep the LAST
+// value and bump received_at to now(), so received_at is "ingest time of the latest write" for a
+// deduped measurement, not first-seen time.
 const INSERT_SQL = `
   INSERT INTO events
     (source, source_type, name, value_num, value_text, value_bool, value_type, unit, ts, labels, event_id, group_id)
