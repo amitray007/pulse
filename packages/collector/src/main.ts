@@ -16,7 +16,10 @@ async function main(): Promise<void> {
 
   const app = buildServer({ pool, registry, logger: true });
 
+  let closing = false;
   const shutdown = async (): Promise<void> => {
+    if (closing) return;
+    closing = true;
     await app.close();
     await pool.end();
     process.exit(0);

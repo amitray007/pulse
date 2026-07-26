@@ -9,6 +9,9 @@ import type { EventInput, EventValue } from "@pulse/db";
 
 const VALUE_TYPES = new Set(["num", "text", "bool"]);
 
+/** Upper bound on events in one array-body request (the 64KiB body limit already bounds this). */
+const MAX_EVENTS_PER_REQUEST = 500;
+
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
@@ -69,6 +72,10 @@ function parseValue(raw: unknown): EventValue {
  */
 export function payloadToEvents(body: unknown, registry: SourceRegistry): EventInput[] {
   if (Array.isArray(body)) {
+    if (body.length === 0) throw new InvalidPayloadError("event array must not be empty");
+    if (body.length > MAX_EVENTS_PER_REQUEST) {
+      throw new InvalidPayloadError(`too many events (max ${MAX_EVENTS_PER_REQUEST})`);
+    }
     return body.map((item) => {
       if (!isObject(item)) throw new InvalidPayloadError("event array items must be objects");
       return parseGenericEvent(item);
