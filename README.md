@@ -1,96 +1,84 @@
 # Pulse
 
-**Self-hosted, generic telemetry platform.** Ingest typed events, store them queryably in Postgres,
-and expose the database to AI over MCP — so you ask questions and build dashboards on demand instead
-of maintaining fixed ones.
+A self-hosted telemetry store. It ingests typed events over HTTP, keeps them in one
+Postgres table, and exposes that table to an MCP client so you can query it with an AI
+instead of maintaining dashboards.
 
-> Status: early. Pulse is source-agnostic — it ships with no source adapters by default. An example
-> adapter (Shopify Web Vitals) lives under `examples/` to show the pattern.
+It has no built-in notion of what it's measuring. An event is a named value (number, text,
+or bool) with a timestamp and a set of labels. You bring the data; Pulse stores and serves it.
 
-## Why
+Status: early, and used by one person so far. It ships with no source adapters — there's one
+example under `examples/` (Shopify Web Vitals) to show the shape.
 
-Most telemetry tools lock you into their schema and their dashboards. Pulse is the opposite:
-
-- **Generic core.** An event is a _named, typed value, at a time, with labels_ (Prometheus/OpenTelemetry
-  shaped). Numbers are first-class (fast percentiles), text is searchable, labels are filterable — no
-  JSON-blob swamp.
-- **Sources are plugins.** Teach Pulse a new data source by adding a descriptor, not by changing the core.
-- **AI is the dashboard.** A token-gated MCP server exposes the database (query, explain, schema, stats,
-  and — for trusted operators — writes). Ask an AI "P75 by country over the last week" instead of
-  building a panel.
-
-## Architecture
+## How it fits together
 
 ```
-sources ──beacon──▶  collector  ──▶  Postgres  ◀──  MCP server  ◀──  AI / local tools
-(any app)            ingest API      the store       query/operate
+your app ──POST──▶ collector ──▶ Postgres ◀── MCP server ◀── AI / SQL client
 ```
 
-- **collector** — a small HTTP service. Validates incoming events against a registered source, then
-  writes typed rows.
-- **Postgres** — one generic `events` table (typed value columns + `labels` jsonb, indexed for filter,
-  search, and percentiles).
-- **mcp** — a remote MCP server exposing the database to AI over an authenticated transport.
-- **sources / examples** — source adapters implement the `Source` interface (`payload -> EventInput[]`).
-  Pulse ships none by default; `examples/web_vital` shows the pattern. Apps can also POST generic events
-  directly, with no adapter at all.
+- **collector** — a Fastify service. Accepts events at `POST /ingest` (or `/e`), validates
+  them, writes rows.
+- **Postgres** — a single `events` table: typed value columns plus a `labels` jsonb column,
+  indexed for filtering, text search, and percentiles.
+- **mcp** — an MCP server over an authenticated transport, with `query`, `explain`, `schema`,
+  `stats`, and (for trusted callers) `execute`.
 
-## Repo layout
+An event can be posted directly in Pulse's generic shape, or a _source adapter_ can translate
+some app-specific payload into events. Adapters implement one function (`payload -> EventInput[]`)
+and register themselves; the core doesn't change. See `examples/web_vital`.
+
+## Layout
 
 ```
-packages/db/          shared Postgres access, the generic events schema, migrations
-packages/core/        the Source interface + source registry
-packages/collector/   the HTTP ingest service (Fastify)
-packages/mcp/         the MCP server (query / execute / explain / schema / stats)
-sources/              your own source adapters (empty by default — bring your own)
-examples/web_vital/   an example adapter: Shopify App Bridge Web Vitals
+packages/db/          Postgres access, the events schema, migrations
+packages/core/        the Source interface + registry
+packages/collector/   the HTTP ingest service
+packages/mcp/         the MCP server
+sources/              your adapters (empty by default)
+examples/web_vital/   an example adapter (Shopify Web Vitals)
 deploy/               Dockerfile + docker-compose
 ```
 
-## Quick start
-
-Run the whole stack (Postgres + collector + MCP) with Docker:
+## Running it
 
 ```bash
-cp .env.example .env        # set MCP_AUTH_TOKEN to a real secret
+cp .env.example .env        # set MCP_AUTH_TOKEN
 docker compose -f deploy/docker-compose.yml up --build
 ```
 
-Send an event to the collector:
+Post an event:
 
 ```bash
 curl -X POST http://localhost:8080/ingest -H 'Content-Type: application/json' \
   -d '{"source":"my-app","source_type":"custom","name":"queue_depth","value":{"type":"num","value":42},"unit":"count","labels":{"env":"prod"}}'
 ```
 
-Then point an MCP client at `http://localhost:8090` with an `Authorization: Bearer <token>`
-header and ask it to `query`, `explain`, `schema`, or `stats` your telemetry.
+Then connect an MCP client to `http://localhost:8090` with an `Authorization: Bearer <token>`
+header and query the `events` table.
 
-## Grouping & querying
+## Grouping
 
-Every event carries two grouping handles, so you slice without any predefined dashboards:
+Two handles let you slice the data without predefined views:
 
-- **`labels`** (jsonb) — arbitrary dimensions (`service`, `shop`, `country`, `env`, ...). Group or
-  filter by any of them.
-- **`group_id`** — correlates events from one session / request / launch, so a burst of related
-  measurements stays together.
+- `labels` (jsonb) — any dimensions you attach (`service`, `shop`, `country`, `env`, ...).
+- `group_id` — ties together events from one session, request, or launch.
 
-Labels **accrete**: when a later event reuses an `event_id` (dedup), its labels merge into the existing
-row rather than replacing them — a sparse follow-up never erases context like `shop` or `country`.
+Labels merge on dedup: if a later event reuses an `event_id`, its labels are added to the
+existing row rather than overwriting it, so a sparse follow-up doesn't drop context.
 
 ```sql
--- P75 of a numeric metric per dimension
+-- P75 of a metric, by dimension
 SELECT labels->>'shop' AS shop, labels->>'country' AS country,
        percentile_cont(0.75) WITHIN GROUP (ORDER BY value_num) AS p75
 FROM events WHERE name = 'lcp_ms' GROUP BY 1, 2;
 
--- one session's events, correlated
+-- one session's events
 SELECT name, value_num FROM events WHERE group_id = '<id>' ORDER BY received_at;
 ```
 
 ## Development
 
-Requires Node 22+ and pnpm, plus a local Postgres for integration tests.
+Node 22+, pnpm, and a local Postgres for integration tests.
 
 ```bash
 pnpm install
@@ -98,8 +86,8 @@ createdb pulse_test
 PULSE_TEST_DATABASE_URL=postgres://localhost:5432/pulse_test pnpm run check
 ```
 
-`pnpm run check` runs the full gate (Prettier + ESLint + tsc + Vitest). Integration tests skip
-cleanly when `PULSE_TEST_DATABASE_URL` is unset.
+`pnpm run check` is Prettier + ESLint + tsc + Vitest. Integration tests skip when
+`PULSE_TEST_DATABASE_URL` is unset.
 
 ## License
 
