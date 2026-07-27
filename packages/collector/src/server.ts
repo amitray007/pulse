@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import { InvalidPayloadError, type SourceRegistry } from "@pulse/core";
 import { insertEvents, type EventInput, type Pool } from "@pulse/db";
 import { payloadToEvents } from "./ingest.js";
@@ -117,7 +117,10 @@ export function buildServer(deps: CollectorDeps): FastifyInstance {
 
   app.get("/health", async () => ({ status: "ok" }));
 
-  app.post("/ingest", async (request, reply) => {
+  // Ingest handler, registered on multiple paths. `/ingest` is the descriptive canonical route;
+  // `/e` is a short, neutral alias that avoids tracker/ad-blocker filter-list patterns (many lists
+  // match "/ingest", "/collect", "/track", etc.), so a browser beacon is less likely to be blocked.
+  const ingest = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     let events: EventInput[];
     try {
       events = payloadToEvents(request.body, deps.registry);
@@ -131,7 +134,10 @@ export function buildServer(deps: CollectorDeps): FastifyInstance {
     if (deps.enrich?.length) applyEnrichments(events, request.headers, deps.enrich);
     await insertEvents(deps.pool, events);
     return reply.code(204).send();
-  });
+  };
+
+  app.post("/ingest", ingest);
+  app.post("/e", ingest); // short, filter-list-neutral alias
 
   return app;
 }

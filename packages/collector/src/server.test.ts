@@ -83,6 +83,17 @@ test("ingests a registered-source payload and returns 204", async () => {
   expect(inserted).toHaveLength(1);
 });
 
+test("the /e alias ingests identically to /ingest", async () => {
+  const { pool, inserted } = fakePool();
+  const res = await build(pool).inject({
+    method: "POST",
+    url: "/e", // short, filter-list-neutral alias for browser beacons
+    payload: { source_type: "test_metric", items: [{ value: 1 }] },
+  });
+  expect(res.statusCode).toBe(204);
+  expect(inserted).toHaveLength(1);
+});
+
 test("accepts text/plain body (sendBeacon default)", async () => {
   const { pool, inserted } = fakePool();
   const res = await build(pool).inject({
