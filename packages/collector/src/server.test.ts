@@ -100,6 +100,20 @@ test("accepts text/plain body (sendBeacon default)", async () => {
   expect(inserted).toHaveLength(1);
 });
 
+test("rejects a non-JSON text/plain body with 400, not 500", async () => {
+  const { pool, inserted } = fakePool();
+  const res = await build(pool).inject({
+    method: "POST",
+    url: "/ingest",
+    headers: { "content-type": "text/plain" },
+    payload: "this is not json at all",
+  });
+  // The content-type parser throws InvalidPayloadError (statusCode 400); Fastify must surface
+  // it as a client error, not a 500. Regression test for the sendBeacon-malformed-body path.
+  expect(res.statusCode).toBe(400);
+  expect(inserted).toHaveLength(0);
+});
+
 const enrich = [{ header: "x-region", label: "region", validate: /^[a-z0-9-]+$/ }];
 
 test("enrichment stamps a label from a configured header when the event omits it", async () => {
