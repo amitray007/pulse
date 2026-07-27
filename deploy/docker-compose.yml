@@ -24,12 +24,14 @@ services:
         SERVICE: collector
     environment:
       DATABASE_URL: postgres://pulse:${POSTGRES_PASSWORD:-pulse}@postgres:5432/pulse
-      COLLECTOR_PORT: 8080
+      # The app binds to this port INSIDE the container and logs it. Single source of truth — the
+      # port mapping below reuses it, so host and container port stay in sync with your env.
+      COLLECTOR_PORT: ${COLLECTOR_PORT:-8080}
       # Comma-separated allowed browser origins for /ingest CORS. Unset = CORS off (same-origin /
       # sendBeacon-only). "*" allows any origin (fine for a public write-only ingest endpoint).
       CORS_ORIGINS: ${CORS_ORIGINS:-}
     ports:
-      - "${COLLECTOR_PORT:-8080}:8080"
+      - "${COLLECTOR_PORT:-8080}:${COLLECTOR_PORT:-8080}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,11 +45,13 @@ services:
     environment:
       DATABASE_URL: postgres://pulse:${POSTGRES_PASSWORD:-pulse}@postgres:5432/pulse
       MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:?set MCP_AUTH_TOKEN in .env}
-      MCP_PORT: 8090
+      # The app binds to this port INSIDE the container and logs it. Single source of truth — the
+      # port mapping below reuses it, so host and container port stay in sync with your env.
+      MCP_PORT: ${MCP_PORT:-8090}
     # NOTE: the MCP has full DB power. Do NOT expose it publicly — reach it over the Dokploy
     # private network or a VPN. The port mapping below is for local use only; drop it in prod.
     ports:
-      - "127.0.0.1:${MCP_PORT:-8090}:8090"
+      - "127.0.0.1:${MCP_PORT:-8090}:${MCP_PORT:-8090}"
     depends_on:
       postgres:
         condition: service_healthy
