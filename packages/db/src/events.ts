@@ -26,6 +26,11 @@ export interface EventInput {
 // out of DO UPDATE SET, so a re-fire keeps the original `source`. On conflict we keep the LAST
 // value and bump received_at to now(), so received_at is "ingest time of the latest write" for a
 // deduped measurement, not first-seen time.
+//
+// Context ACCRETES, it does not get erased. A re-fire (e.g. web-vitals reportAllChanges) often
+// carries only the metric, not the full context — so `labels` MERGE (existing || incoming: keep known
+// keys, add/overwrite with new ones) and `group_id` persists when the re-fire omits it (COALESCE).
+// This keeps grouping dimensions (shop, country, session) reliable across sparse re-fires.
 const INSERT_SQL = `
   INSERT INTO events
     (source, source_type, name, value_num, value_text, value_bool, value_type, unit, ts, labels, event_id, group_id)
@@ -39,8 +44,8 @@ const INSERT_SQL = `
     value_type = EXCLUDED.value_type,
     unit = EXCLUDED.unit,
     ts = EXCLUDED.ts,
-    labels = EXCLUDED.labels,
-    group_id = EXCLUDED.group_id,
+    labels = events.labels || EXCLUDED.labels,
+    group_id = COALESCE(EXCLUDED.group_id, events.group_id),
     received_at = now()
 `;
 

@@ -66,6 +66,28 @@ curl -X POST http://localhost:8080/ingest -H 'Content-Type: application/json' \
 Then point an MCP client at `http://localhost:8090` with an `Authorization: Bearer <token>`
 header and ask it to `query`, `explain`, `schema`, or `stats` your telemetry.
 
+## Grouping & querying
+
+Every event carries two grouping handles, so you slice without any predefined dashboards:
+
+- **`labels`** (jsonb) — arbitrary dimensions (`service`, `shop`, `country`, `env`, ...). Group or
+  filter by any of them.
+- **`group_id`** — correlates events from one session / request / launch, so a burst of related
+  measurements stays together.
+
+Labels **accrete**: when a later event reuses an `event_id` (dedup), its labels merge into the existing
+row rather than replacing them — a sparse follow-up never erases context like `shop` or `country`.
+
+```sql
+-- P75 of a numeric metric per dimension
+SELECT labels->>'shop' AS shop, labels->>'country' AS country,
+       percentile_cont(0.75) WITHIN GROUP (ORDER BY value_num) AS p75
+FROM events WHERE name = 'lcp_ms' GROUP BY 1, 2;
+
+-- one session's events, correlated
+SELECT name, value_num FROM events WHERE group_id = '<id>' ORDER BY received_at;
+```
+
 ## Development
 
 Requires Node 22+ and pnpm, plus a local Postgres for integration tests.
