@@ -1,26 +1,30 @@
 # Multi-stage build for a Pulse service (collector or mcp). Pass SERVICE as a build arg.
 #   docker build -f deploy/Dockerfile --build-arg SERVICE=collector -t pulse-collector .
 #   docker build -f deploy/Dockerfile --build-arg SERVICE=mcp       -t pulse-mcp .
+#
+# We use `pnpm deploy` (with inject-workspace-packages=true in .npmrc) to produce a self-contained
+# bundle for one package: its @pulse/* workspace deps are materialized as real packages, not symlinks
+# to source. A plain `COPY` + `pnpm prune` leaves the workspace symlinks dangling in the runtime image
+# and Node fails with ERR_MODULE_NOT_FOUND on @pulse/core.
 
 FROM node:22-slim AS build
 WORKDIR /app
 RUN corepack enable
-# CI=true so `pnpm prune` purges node_modules non-interactively (no TTY in a Docker build,
-# otherwise it aborts with ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY).
+# CI=true so pnpm runs non-interactively (no TTY in a Docker build).
 ENV CI=true
 # Copy the whole workspace and install against the lockfile.
 COPY . .
 RUN pnpm install --frozen-lockfile
 # `tsc --build` compiles every package to its dist/ (composite project references).
 RUN pnpm run typecheck
-# Drop dev dependencies; dist/ and migrations/ stay.
-RUN pnpm prune --prod
+# Bundle just the requested service into /deploy, with @pulse/* deps injected and dev deps dropped.
+# The deployed layout is flat: entrypoint ends up at /deploy/dist/main.js.
+ARG SERVICE
+RUN pnpm --filter "@pulse/${SERVICE}" deploy --prod /deploy
 
 FROM node:22-slim AS runtime
 WORKDIR /app
-ARG SERVICE
 ENV NODE_ENV=production
-ENV PULSE_SERVICE=${SERVICE}
-COPY --from=build /app ./
-# Each service's compiled entrypoint is packages/<service>/dist/main.js.
-CMD ["sh", "-c", "node packages/${PULSE_SERVICE}/dist/main.js"]
+COPY --from=build /deploy ./
+# `pnpm deploy` flattens the package to the root: the compiled entrypoint is dist/main.js.
+CMD ["node", "dist/main.js"]
