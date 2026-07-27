@@ -55,8 +55,12 @@ afterEach(async () => {
   servers = [];
 });
 
-function build(pool: Pool, enrich?: import("./server.js").HeaderEnrichment[]) {
-  const app = buildServer({ pool, registry: registry(), enrich });
+function build(
+  pool: Pool,
+  enrich?: import("./server.js").HeaderEnrichment[],
+  corsOrigins?: string[],
+) {
+  const app = buildServer({ pool, registry: registry(), enrich, corsOrigins });
   servers.push(app);
   return app;
 }
@@ -133,6 +137,71 @@ test("enrichment rejects a header value that fails validation", async () => {
   });
   const labels = JSON.parse(inserted[0]?.[9] as string);
   expect(labels.region).toBeUndefined();
+});
+
+test("no CORS headers when corsOrigins is unset", async () => {
+  const { pool } = fakePool();
+  const res = await build(pool).inject({
+    method: "POST",
+    url: "/ingest",
+    headers: { origin: "https://admin.shopify.com" },
+    payload: { source_type: "test_metric", items: [{ value: 1 }] },
+  });
+  expect(res.statusCode).toBe(204);
+  expect(res.headers["access-control-allow-origin"]).toBeUndefined();
+});
+
+test("wildcard corsOrigins echoes * on ingest", async () => {
+  const { pool } = fakePool();
+  const res = await build(pool, undefined, ["*"]).inject({
+    method: "POST",
+    url: "/ingest",
+    headers: { origin: "https://admin.shopify.com" },
+    payload: { source_type: "test_metric", items: [{ value: 1 }] },
+  });
+  expect(res.statusCode).toBe(204);
+  expect(res.headers["access-control-allow-origin"]).toBe("*");
+});
+
+test("OPTIONS preflight is answered with 204 and CORS headers", async () => {
+  const { pool } = fakePool();
+  const res = await build(pool, undefined, ["*"]).inject({
+    method: "OPTIONS",
+    url: "/ingest",
+    headers: {
+      origin: "https://admin.shopify.com",
+      "access-control-request-method": "POST",
+      "access-control-request-headers": "content-type",
+    },
+  });
+  expect(res.statusCode).toBe(204);
+  expect(res.headers["access-control-allow-origin"]).toBe("*");
+  expect(res.headers["access-control-allow-methods"]).toContain("POST");
+  expect(res.headers["access-control-allow-headers"]).toContain("content-type");
+});
+
+test("explicit allow-list echoes a listed origin and adds Vary", async () => {
+  const { pool } = fakePool();
+  const res = await build(pool, undefined, ["https://admin.shopify.com"]).inject({
+    method: "POST",
+    url: "/ingest",
+    headers: { origin: "https://admin.shopify.com" },
+    payload: { source_type: "test_metric", items: [{ value: 1 }] },
+  });
+  expect(res.headers["access-control-allow-origin"]).toBe("https://admin.shopify.com");
+  expect(res.headers["vary"]).toContain("Origin");
+});
+
+test("explicit allow-list omits the header for an unlisted origin", async () => {
+  const { pool } = fakePool();
+  const res = await build(pool, undefined, ["https://admin.shopify.com"]).inject({
+    method: "POST",
+    url: "/ingest",
+    headers: { origin: "https://evil.example.com" },
+    payload: { source_type: "test_metric", items: [{ value: 1 }] },
+  });
+  expect(res.statusCode).toBe(204); // ingest still succeeds; the browser just won't expose the response
+  expect(res.headers["access-control-allow-origin"]).toBeUndefined();
 });
 
 test("returns 400 on an invalid payload, does not insert", async () => {
