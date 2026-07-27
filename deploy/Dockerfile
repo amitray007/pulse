@@ -5,6 +5,9 @@
 FROM node:22-slim AS build
 WORKDIR /app
 RUN corepack enable
+# CI=true so `pnpm prune` purges node_modules non-interactively (no TTY in a Docker build,
+# otherwise it aborts with ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY).
+ENV CI=true
 # Copy the whole workspace and install against the lockfile.
 COPY . .
 RUN pnpm install --frozen-lockfile
