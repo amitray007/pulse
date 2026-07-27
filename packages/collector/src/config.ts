@@ -3,6 +3,17 @@ export interface CollectorConfig {
   databaseUrl: string;
   port: number;
   host: string;
+  /** Allowed CORS origins (comma-separated in CORS_ORIGINS). Empty = CORS disabled. */
+  corsOrigins: string[];
+}
+
+/** Parse a comma-separated origin list; trims blanks. "*" is a valid single entry (allow any). */
+function parseOrigins(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((o) => o.trim())
+    .filter((o) => o.length > 0);
 }
 
 function required(name: string, env: NodeJS.ProcessEnv): string {
@@ -26,5 +37,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): CollectorConfi
     databaseUrl: required("DATABASE_URL", env),
     port: parsePort("COLLECTOR_PORT", env.COLLECTOR_PORT, 8080),
     host: env.COLLECTOR_HOST ?? "0.0.0.0",
+    corsOrigins: parseOrigins(env.CORS_ORIGINS),
   };
 }

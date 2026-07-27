@@ -25,6 +25,9 @@ services:
     environment:
       DATABASE_URL: postgres://pulse:${POSTGRES_PASSWORD:-pulse}@postgres:5432/pulse
       COLLECTOR_PORT: 8080
+      # Comma-separated allowed browser origins for /ingest CORS. Unset = CORS off (same-origin /
+      # sendBeacon-only). "*" allows any origin (fine for a public write-only ingest endpoint).
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
     ports:
       - "${COLLECTOR_PORT:-8080}:8080"
     depends_on:

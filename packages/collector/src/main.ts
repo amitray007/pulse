@@ -14,7 +14,7 @@ async function main(): Promise<void> {
   // collector still accepts generic events posted directly to /ingest.
   const registry = new SourceRegistry();
 
-  const app = buildServer({ pool, registry, logger: true });
+  const app = buildServer({ pool, registry, corsOrigins: config.corsOrigins, logger: true });
 
   let closing = false;
   const shutdown = async (): Promise<void> => {
