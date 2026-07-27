@@ -41,6 +41,39 @@ test("maps a metric to a typed numeric event with unit + labels + dedup id", () 
   });
 });
 
+test("passes through arbitrary context fields as labels (network, device, page)", () => {
+  const [lcp] = webVitalSource.toEvents({
+    app: "TIKTOK_PIXEL",
+    shop_id: 72000000001,
+    connection_type: "3g",
+    is_mobile: true,
+    os: "Android",
+    cpu_cores: 4,
+    device_memory_gb: 4,
+    path: "/home",
+    timezone: "Asia/Kolkata",
+    launch_id: "L1",
+    metrics: [{ name: "LCP", value: 4200, id: "x", country: "IN" }],
+  });
+  expect(lcp?.labels).toEqual({
+    app: "TIKTOK_PIXEL",
+    shop_id: "72000000001", // number stringified
+    connection_type: "3g",
+    is_mobile: "true", // boolean stringified
+    os: "Android",
+    cpu_cores: "4",
+    device_memory_gb: "4",
+    path: "/home",
+    timezone: "Asia/Kolkata",
+    country: "IN", // from the metric
+  });
+  // structural keys must NOT leak into labels:
+  expect(lcp?.labels).not.toHaveProperty("metrics");
+  expect(lcp?.labels).not.toHaveProperty("launch_id");
+  expect(lcp?.labels).not.toHaveProperty("source_type");
+  expect(lcp?.groupId).toBe("L1"); // launch_id → group_id
+});
+
 test("CLS uses the score unit, not ms", () => {
   const cls = webVitalSource.toEvents(beacon).find((e) => e.name === "CLS");
   expect(cls?.unit).toBe("score");
