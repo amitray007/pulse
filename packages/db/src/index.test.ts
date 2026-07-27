@@ -71,7 +71,7 @@ describeDb("dedups on event_id — same id upserts, keeps last value", async () 
     value: { type: "num" as const, value: 1000 },
   };
   await insertEvent(pool, base);
-  await insertEvent(pool, { ...base, value: { type: "num", value: 2500 } }); // reportAllChanges re-fire
+  await insertEvent(pool, { ...base, value: { type: "num", value: 2500 } }); // re-fire with a new value
   const { rows } = await pool.query("SELECT value_num FROM events");
   expect(rows).toHaveLength(1);
   expect(rows[0].value_num).toBe(2500);
@@ -82,42 +82,42 @@ describeDb(
   async () => {
     await insertEvent(pool, {
       source: "t",
-      sourceType: "web_vital",
-      name: "LCP",
-      eventId: "v3-x",
-      groupId: "launch-1",
+      sourceType: "http",
+      name: "latency_ms",
+      eventId: "m-x",
+      groupId: "req-1",
       value: { type: "num", value: 1000 },
-      labels: { app: "FB", shop: "s1", country: "IN" },
+      labels: { service: "api", region: "eu", host: "h1" },
     });
-    // reportAllChanges-style re-fire: only the metric, no shop/country/group_id.
+    // re-fire: only the updated value, no service/region/group_id.
     await insertEvent(pool, {
       source: "t",
-      sourceType: "web_vital",
-      name: "LCP",
-      eventId: "v3-x",
+      sourceType: "http",
+      name: "latency_ms",
+      eventId: "m-x",
       value: { type: "num", value: 3100 },
       labels: {},
     });
     const { rows } = await pool.query("SELECT value_num, labels, group_id FROM events");
     expect(rows).toHaveLength(1);
     expect(rows[0].value_num).toBe(3100); // value takes last write
-    expect(rows[0].labels).toEqual({ app: "FB", shop: "s1", country: "IN" }); // labels preserved
-    expect(rows[0].group_id).toBe("launch-1"); // group_id persisted
+    expect(rows[0].labels).toEqual({ service: "api", region: "eu", host: "h1" }); // labels preserved
+    expect(rows[0].group_id).toBe("req-1"); // group_id persisted
   },
 );
 
-describeDb("upsert label merge adds/overwrites keys from a later beacon", async () => {
+describeDb("upsert label merge adds/overwrites keys from a later write", async () => {
   const base = {
     source: "t",
-    sourceType: "web_vital",
-    name: "LCP",
-    eventId: "v3-y",
+    sourceType: "http",
+    name: "latency_ms",
+    eventId: "m-y",
     value: { type: "num" as const, value: 1 },
   };
-  await insertEvent(pool, { ...base, labels: { app: "FB", country: "IN" } });
-  await insertEvent(pool, { ...base, labels: { country: "US", plan: "pro" } }); // change + add
+  await insertEvent(pool, { ...base, labels: { service: "api", region: "eu" } });
+  await insertEvent(pool, { ...base, labels: { region: "us", tier: "pro" } }); // change + add
   const { rows } = await pool.query("SELECT labels FROM events");
-  expect(rows[0].labels).toEqual({ app: "FB", country: "US", plan: "pro" });
+  expect(rows[0].labels).toEqual({ service: "api", region: "us", tier: "pro" });
 });
 
 describeDb("events without event_id always insert (no dedup)", async () => {
