@@ -3,39 +3,56 @@ import { InvalidPayloadError, type SourceRegistry } from "@pulse/core";
 import { insertEvents, type EventInput, type Pool } from "@pulse/db";
 import { payloadToEvents } from "./ingest.js";
 
+/**
+ * Stamp a label onto ingested events from a request header, when the event doesn't already carry it.
+ * Generic — the deployment decides which headers become which labels (e.g. a CDN geo header). The
+ * collector itself has no built-in header knowledge.
+ */
+export interface HeaderEnrichment {
+  /** Request header to read (lower-case), e.g. "cf-ipcountry". */
+  header: string;
+  /** Label key to set from it, e.g. "country". */
+  label: string;
+  /** Optional guard on the header value; reject anything that doesn't match. */
+  validate?: RegExp;
+}
+
 export interface CollectorDeps {
   pool: Pool;
   registry: SourceRegistry;
   /** Max ingest body size in bytes (abuse guard). Default 64 KiB. */
   bodyLimit?: number;
+  /** Optional header→label enrichments (e.g. a CDN geo header). Default: none. */
+  enrich?: HeaderEnrichment[];
   logger?: boolean;
 }
 
-// Some proxies/CDNs add a country header (e.g. Cloudflare's cf-ipcountry). When a beacon omits
-// country, fall back to that header so the population signal is never lost. Applied only to events
-// that don't already carry a country label.
-const COUNTRY_HEADERS = ["cf-ipcountry", "x-vercel-ip-country", "x-country-code"];
-
-// Proxy country headers are attacker-controllable, so accept only a well-formed ISO-3166 alpha-2
-// code and never persist arbitrary header bytes as a "country".
-function countryFromHeaders(
+function headerValue(
   headers: Record<string, string | string[] | undefined>,
+  name: string,
+  validate?: RegExp,
 ): string | undefined {
-  for (const h of COUNTRY_HEADERS) {
-    const v = headers[h];
-    const code = Array.isArray(v) ? v[0] : v;
-    if (code && /^[A-Z]{2}$/.test(code)) return code;
-  }
-  return undefined;
+  const raw = headers[name];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (!value) return undefined;
+  if (validate && !validate.test(value)) return undefined;
+  return value;
 }
 
-// Clone each event's labels before adding country — the source adapter may share one labels object
-// across several events, so mutating in place would leak the country onto siblings.
-function fillCountry(events: EventInput[], country: string | undefined): void {
-  if (!country) return;
-  for (const event of events) {
-    if (event.labels?.country) continue;
-    event.labels = { ...(event.labels ?? {}), country };
+// Apply the configured enrichments: for each event missing the label, set it from the header.
+// Clones labels before writing — a source adapter may share one labels object across events.
+function applyEnrichments(
+  events: EventInput[],
+  headers: Record<string, string | string[] | undefined>,
+  enrich: HeaderEnrichment[],
+): void {
+  for (const { header, label, validate } of enrich) {
+    const value = headerValue(headers, header, validate);
+    if (!value) continue;
+    for (const event of events) {
+      if (event.labels?.[label]) continue;
+      event.labels = { ...(event.labels ?? {}), [label]: value };
+    }
   }
 }
 
@@ -68,7 +85,7 @@ export function buildServer(deps: CollectorDeps): FastifyInstance {
       throw err;
     }
 
-    fillCountry(events, countryFromHeaders(request.headers));
+    if (deps.enrich?.length) applyEnrichments(events, request.headers, deps.enrich);
     await insertEvents(deps.pool, events);
     return reply.code(204).send();
   });

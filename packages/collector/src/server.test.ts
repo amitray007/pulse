@@ -3,17 +3,17 @@ import { InvalidPayloadError, SourceRegistry, type Source } from "@pulse/core";
 import type { Pool } from "@pulse/db";
 import { buildServer } from "./server.js";
 
-// A generic test source: explodes { items: [{ value, country? }, ...] } into numeric events,
-// carrying a country label only when the item provides one. No specific adapter involved.
+// A generic test source: explodes { items: [{ value, region? }, ...] } into numeric events,
+// carrying a region label only when the item provides one. No specific adapter involved.
 const testSource: Source = {
   sourceType: "test_metric",
   toEvents(payload) {
     const items = (payload as { items?: unknown }).items;
     if (!Array.isArray(items)) throw new InvalidPayloadError("items must be an array");
     return items.map((raw) => {
-      const item = raw as { value: number; country?: string };
+      const item = raw as { value: number; region?: string };
       const labels: Record<string, string> = {};
-      if (item.country) labels.country = item.country;
+      if (item.region) labels.region = item.region;
       return {
         source: "test",
         sourceType: "test_metric",
@@ -55,8 +55,8 @@ afterEach(async () => {
   servers = [];
 });
 
-function build(pool: Pool) {
-  const app = buildServer({ pool, registry: registry() });
+function build(pool: Pool, enrich?: import("./server.js").HeaderEnrichment[]) {
+  const app = buildServer({ pool, registry: registry(), enrich });
   servers.push(app);
   return app;
 }
@@ -96,29 +96,43 @@ test("accepts text/plain body (sendBeacon default)", async () => {
   expect(inserted).toHaveLength(1);
 });
 
-test("fills country from a proxy header when the event omits it", async () => {
+const enrich = [{ header: "x-region", label: "region", validate: /^[a-z0-9-]+$/ }];
+
+test("enrichment stamps a label from a configured header when the event omits it", async () => {
   const { pool, inserted } = fakePool();
-  await build(pool).inject({
+  await build(pool, enrich).inject({
     method: "POST",
     url: "/ingest",
-    headers: { "cf-ipcountry": "DE" },
+    headers: { "x-region": "eu-west" },
     payload: { source: "s", source_type: "custom", name: "x", value: { type: "num", value: 1 } },
   });
   // labels is param index 9 (0-based) in the INSERT (see events.ts column order).
   const labels = JSON.parse(inserted[0]?.[9] as string);
-  expect(labels.country).toBe("DE");
+  expect(labels.region).toBe("eu-west");
 });
 
-test("does not override a country the event already provided", async () => {
+test("enrichment does not override a label the event already provided", async () => {
   const { pool, inserted } = fakePool();
-  await build(pool).inject({
+  await build(pool, enrich).inject({
     method: "POST",
     url: "/ingest",
-    headers: { "cf-ipcountry": "DE" },
-    payload: { source_type: "test_metric", items: [{ value: 1, country: "IN" }] },
+    headers: { "x-region": "eu-west" },
+    payload: { source_type: "test_metric", items: [{ value: 1, region: "us-east" }] },
   });
   const labels = JSON.parse(inserted[0]?.[9] as string);
-  expect(labels.country).toBe("IN");
+  expect(labels.region).toBe("us-east");
+});
+
+test("enrichment rejects a header value that fails validation", async () => {
+  const { pool, inserted } = fakePool();
+  await build(pool, enrich).inject({
+    method: "POST",
+    url: "/ingest",
+    headers: { "x-region": "BAD REGION!" },
+    payload: { source: "s", source_type: "custom", name: "x", value: { type: "num", value: 1 } },
+  });
+  const labels = JSON.parse(inserted[0]?.[9] as string);
+  expect(labels.region).toBeUndefined();
 });
 
 test("returns 400 on an invalid payload, does not insert", async () => {

@@ -27,10 +27,10 @@ export interface EventInput {
 // value and bump received_at to now(), so received_at is "ingest time of the latest write" for a
 // deduped measurement, not first-seen time.
 //
-// Context ACCRETES, it does not get erased. A re-fire (e.g. web-vitals reportAllChanges) often
-// carries only the metric, not the full context — so `labels` MERGE (existing || incoming: keep known
-// keys, add/overwrite with new ones) and `group_id` persists when the re-fire omits it (COALESCE).
-// This keeps grouping dimensions (shop, country, session) reliable across sparse re-fires.
+// Context ACCRETES, it does not get erased. A re-fire that reuses an event_id often carries only the
+// updated value, not the full context — so `labels` MERGE (existing || incoming: keep known keys,
+// add/overwrite with new ones) and `group_id` persists when the re-fire omits it (COALESCE). This
+// keeps grouping dimensions reliable even when later writes for the same measurement are sparse.
 const INSERT_SQL = `
   INSERT INTO events
     (source, source_type, name, value_num, value_text, value_bool, value_type, unit, ts, labels, event_id, group_id)
